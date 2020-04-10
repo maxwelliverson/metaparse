@@ -1,0 +1,28 @@
+//
+// Created by maxwell on 2020-04-09.
+//
+
+#include "include/meta/concepts.h"
+
+/// \test A group of static assertions verifying the correctness of the various
+/// concepts and meta-programming utilities in this header file, as errors that
+/// manifest down the line can be extraordinarily difficult to debug if they
+/// stem from faulty meta-programming utilities.
+namespace {
+  //Provide Testing Helpers
+#include "../test_defs.inl"
+
+  template <typename T, template <typename> typename TT>
+  constexpr bool test = base_class_of<TT<T>, T>;
+  struct lmao : uninstantiable{};
+
+
+  static_assert(std::is_same_v<extract_crtp_base_t<lmao, attribute_tag>, lmao>);
+  static_assert(std::is_same_v<extract_crtp_base_t<uninstantiable, attribute_tag>, attribute_tag<uninstantiable>>);
+  static_assert(test<uninstantiable, attribute_tag>);
+  static_assert(!test<lmao, attribute_tag>);
+
+  static_assert(crtp_inherits<uninstantiable, attribute_tag>);
+  static_assert(!crtp_inherits<lmao, attribute_tag>);
+
+}

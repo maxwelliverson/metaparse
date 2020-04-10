@@ -5,7 +5,7 @@
 #ifndef METAPARSE_ASTBASE_H
 #define METAPARSE_ASTBASE_H
 
-namespace lang
+namespace
 {
 
 }

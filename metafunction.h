@@ -49,7 +49,7 @@
 #define THROW_ERROR(e) ::meta::metafunction::error<::meta::metafunction::error_type:: e>\
 {using ::meta::metafunction::error<::meta::metafunction::error_type:: e>::result;}
 
-#include "meta.h"
+#include "meta/attribute.h"
 
 namespace meta{
 
