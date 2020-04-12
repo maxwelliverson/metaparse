@@ -8,6 +8,8 @@
  */
 
 #include "meta/attribute.h"
+#include "logic/statement.h"
+
 #include <initializer_list>
 #include <iostream>
 #include <llvm/ADT/SmallVector.h>
