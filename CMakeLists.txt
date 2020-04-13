@@ -38,7 +38,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_FLAGS}")
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(metaparse main.cpp metafunction.h include/meta/attribute.h ASTBase.h include/logic/axiom.h include/logic/operators.h include/logic/boolean.h include/meta/concepts.h)
+add_executable(metaparse main.cpp metafunction.h include/meta/attribute.h ASTBase.h include/logic/axiom.h include/logic/operators.h include/logic/boolean.h include/meta/concepts.h include/logic/set.h include/logic/variable.h include/meta/metavalue.h include/logic/statement.h include/logic/expression.h)
 add_executable(tests test/test_defs.inl test/meta/concepts.ii test/run_tests.cpp)
 enable_language(CXX)
 add_test(unit_tests COMMAND ./tests)
