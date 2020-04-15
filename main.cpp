@@ -49,5 +49,6 @@ int main()
     auto str = initialze_array<>("Hello, World!");
 
     for (auto c : str)
+      if(c)
         std::cout << c;
 }

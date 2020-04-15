@@ -13,11 +13,43 @@
 #include <llvm/Support/Regex.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/StringExtras.h>
+#include <llvm/ADT/StringMap.h>
+#include <range/v3/range.hpp>
+#include <range/v3/view.hpp>
 
 
 
 
+class index_iterator{
+    size_t pos;
+  public:
+      index_iterator(size_t pos) : pos(pos){}
 
+      bool operator ==(const index_iterator& other) const{
+        return pos == other.pos;
+      }
+      bool operator !=(const index_iterator& other) const{
+        return pos != other.pos;
+      }
+
+      index_iterator& operator++(){++pos; return *this;}
+      size_t operator*() const{
+        return pos;
+      }
+  };
+class iota_range{
+    const size_t first = 0;
+    const size_t last;
+  public:
+    iota_range(size_t last) : last(last){}
+    iota_range(size_t first, size_t last) : first(first), last(last){}
+    index_iterator begin() const{
+      return first;
+    }
+    index_iterator end() const{
+      return last;
+    }
+  };
 
 namespace string_constants
 {
@@ -122,118 +154,220 @@ public:
   [[nodiscard]] EnvVarValue get(const llvm::StringRef& name) const{
     return variables.lookup(name);
   }
-  void set(const llvm::StringRef& name, const EnvVarValue& value){
-    variables.insert({name, value});
+  template <typename T>
+  void set(const llvm::StringRef& name, T&& value){
+    if(!variables.insert({name, EnvVarValue(value)}).second) {
+      if (auto &&opt = variables[name]; opt.hasValue())
+        opt.getValue() = value;
+      else
+        opt.emplace(value);
+    }
+  }
+  template <typename T, size_t N>
+  void set(const llvm::StringRef& name, const T (& value)[N]){
+    set(name, llvm::StringRef(value));
   }
 };
-struct TestPrecondition
+struct TestPrecondition : std::enable_shared_from_this<TestPrecondition>
 {
-  virtual llvm::StringRef message() const = 0;
+  virtual std::string message() const {return "";};
   virtual bool isSatisfied(const Environment&) const = 0;
 };
 
 
 namespace {
+  class Test;
   class TestResult
   {
-    const static std::string newline;
+    using ConditionVector = std::vector<std::shared_ptr<TestPrecondition>>;
+    using MarkedConditionVector = std::vector<std::pair<std::shared_ptr<TestPrecondition>, bool>>;
 
+    std::shared_ptr<Test> test_ptr;
+    const static std::string newline;
     const bool passed;
-    const std::string passedStr = passed ? "Test Passed: " : "Test Failed: ";
+    const std::string passedStr = passed ? " Passed: " : " Failed: ";
+
+    friend class Test;
+
+    [[nodiscard]] virtual std::string message() const noexcept = 0;
+
+    class MarkedConditionRange {
+      const ConditionVector& ref;
+      const Environment& env;
+      class Iterator
+      {
+        const ConditionVector& ref;
+        const Environment& env;
+        size_t pos;
+      public:
+          Iterator(const Environment& env, const ConditionVector& ref) : ref(ref), pos(0), env(env){}
+
+          bool operator!=(size_t endpos) const noexcept{
+            return pos != endpos;
+          }
+          auto operator*() const{
+            const auto& cond = ref[pos];
+            return std::pair{cond, cond->isSatisfied(env)};
+          }
+          Iterator& operator++(){
+            ++pos;
+            return *this;
+          }
+      };
+    public:
+        MarkedConditionRange(const Environment& env, const ConditionVector& ref) : ref(ref), env(env){}
+
+        Iterator begin() const{
+          return Iterator(env, ref);
+        }
+        size_t end() const{
+          return ref.size();
+        }
+    };
+
   public:
     TestResult(bool passed) : passed(passed){}
 
-    [[nodiscard]] virtual std::string message() const noexcept = 0;
-    [[nodiscard]] operator std::string() const noexcept
-    {
-      return passedStr + message() + newline;
-    }
+    [[nodiscard]] std::string to_string() const noexcept;
     [[nodiscard]] explicit operator bool() const noexcept
     {
       return passed;
     }
+    [[nodiscard]] bool pass() const noexcept{
+      return passed;
+    }
+
+    [[nodiscard]] bool expectedToPass() const;
+    [[nodiscard]] bool expectedToFail() const;
+
+    [[nodiscard]] ConditionVector getUnsatisfiedPreconditions() const;
+    [[nodiscard]] ConditionVector getSatisfiedPreconditions() const;
+
+    [[nodiscard]] MarkedConditionRange getPreconditions() const;
   };
   const std::string TestResult::newline = "\n";
 
   using TestFunc = std::unique_ptr<TestResult>();
 
-  class Test
+  class Test : public std::enable_shared_from_this<Test>
   {
-    using ConditionVector = std::vector<std::shared_ptr<TestPrecondition>>;
-    using MarkedConditionVector = std::vector<std::pair<std::shared_ptr<TestPrecondition>, bool>>;
+    using ConditionVector = typename TestResult::ConditionVector;
+    using MarkedConditionVector = typename TestResult::MarkedConditionVector;
 
+    const Environment& env;
     std::string name;
-    MarkedConditionVector preconditions;
-    std::unique_ptr<TestFunc> test_func;
+    ConditionVector preconditions;
+    TestFunc* const test_func;
     std::unique_ptr<TestResult> test_result;
-    bool expected;
+
+    friend class TestResult;
 
   public:
       Test(const Environment& env, std::string name, TestFunc* func, const ConditionVector& precons = {}) :
+         env(env),
          name(std::move(name)),
          test_func(func),
          test_result(nullptr),
-         preconditions(){
-        llvm::for_each(precons, [this, &env](std::shared_ptr<TestPrecondition>& cond){preconditions.push_back({cond, cond->isSatisfied(env)});});
-        expected = llvm::all_of(preconditions, [&env](auto&& cond){return cond.second;});
+         preconditions(precons){
+        /*llvm::for_each(precons, [this, &env](const std::shared_ptr<TestPrecondition>& cond){preconditions.push_back({cond, cond->isSatisfied(env)});});
+        expected = llvm::all_of(preconditions, [&env](auto&& cond){return cond.second;});*/
       }
 
-      const std::unique_ptr<TestResult>& runTest()
+      std::unique_ptr<TestResult>&& runTest()
       {
-        test_result = std::move(test_func.get()());
-        return test_result;
-      }
-      [[nodiscard]] bool expectedToPass() const{
-        return expected;
-      }
-      [[nodiscard]] bool expectedToFail() const{
-        return !expected;
-      }
-
-      [[nodiscard]] ConditionVector getUnsatisfiedPreconditions() const
-      {
-        ConditionVector vec;
-        for(auto&& cond : preconditions){
-          if(!cond.second)
-            vec.push_back(cond.first);
-        }
-        return vec;
-      }
-      [[nodiscard]] ConditionVector getSatisfiedPreconditions() const
-      {
-        ConditionVector vec;
-        for(auto&& cond : preconditions){
-          if(cond.second)
-            vec.push_back(cond.first);
-        }
-        return vec;
+        test_result = std::move(test_func());
+        test_result->test_ptr = shared_from_this();
+        return std::move(test_result);
       }
   };
 
-  class TestPass : TestResult
+
+  [[nodiscard]] std::string TestResult::to_string() const noexcept {
+    return test_ptr->name + ": " + this->message();
+  }
+  [[nodiscard]] bool TestResult::expectedToPass() const {
+    return llvm::all_of(test_ptr->preconditions, [&env = test_ptr->env](auto&& cond){return cond->isSatisfied(env);});
+  }
+  [[nodiscard]] bool TestResult::expectedToFail() const{
+    return !expectedToPass();
+  }
+
+
+  [[nodiscard]] TestResult::ConditionVector TestResult::getUnsatisfiedPreconditions() const
+  {
+    namespace views = ranges::views;
+    ConditionVector vec;
+    const auto predicate = [&env = test_ptr->env](auto&& cond){return !cond->isSatisfied(env);};
+    for(auto&& cond : test_ptr->preconditions | views::filter(predicate))
+      vec.push_back(cond);
+    return vec;
+  }
+  [[nodiscard]] TestResult::ConditionVector TestResult::getSatisfiedPreconditions() const
+  {
+    namespace views = ranges::views;
+    ConditionVector vec;
+    const auto predicate = [&env = test_ptr->env](auto&& cond){return cond->isSatisfied(env);};
+    for(auto&& cond : test_ptr->preconditions | views::filter(predicate))
+      vec.push_back(cond);
+    return vec;
+  }
+  [[nodiscard]] TestResult::MarkedConditionRange TestResult::getPreconditions() const{
+    return {test_ptr->env, test_ptr->preconditions};
+  }
+
+
+  class TestPass : public TestResult
   {
   public:
     TestPass() : TestResult(true){}
 
     [[nodiscard]] std::string message() const noexcept override {
-      return "no errors";
+      return "Passed";
     }
   };
-  class TestFailure : TestResult
+  class TestFailure : public TestResult
   {
+    std::string str;
   public:
-    TestFailure() : TestResult(false){}
+    TestFailure(const std::string& str) : str(str), TestResult(false){}
+    TestFailure() : TestFailure("Unknown Error"){}
 
     [[nodiscard]] std::string message() const noexcept override {
-      return "unknown error";
+      return str;
+    }
+  };
+
+
+
+  template <typename T>
+  auto zip_with_indices(const T& container){
+    return llvm::zip(container, llvm::make_range(index_iterator(0), index_iterator(container.size())));
+  }
+
+  class TestList
+  {
+    std::vector<std::shared_ptr<Test>> test_list;
+public:
+    TestList() = default;
+    template <typename ...T> requires (std::is_same_v<T, Test> && ...)
+    TestList(std::shared_ptr<T>& ...t) : test_list{t->shared_from_this()...}{}
+
+    template <typename ...T> requires (std::is_same_v<T, Test> && ...)
+    void enqueue(std::shared_ptr<T>& ...t){
+      (test_list.push_back(t->shared_from_this()), ...);
+    }
+
+    std::vector<std::unique_ptr<TestResult>> run_all(){
+      std::vector<std::unique_ptr<TestResult>> results;
+      results.reserve(test_list.size());
+
+      for(auto&& test : test_list){
+        results.push_back(std::move(test->runTest()));
+      }
+      return results;
     }
   };
 }
-
-struct TestRunner
-{
-  std::vector<Test> test_list;
-};
 
 #define ADD_TEST(name, test_function) \
   struct \
