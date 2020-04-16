@@ -7,12 +7,13 @@
 
 #include "expression.h"
 
-namespace pram::inline logic
+namespace pram
 {
-  class LogicStatement
-  {
+    inline namespace logic {
+        class LogicStatement {
 
-  };
+        };
+    }
 }
 
 #endif//METAPARSE_STATEMENT_H

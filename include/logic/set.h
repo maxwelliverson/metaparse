@@ -7,9 +7,11 @@
 
 #include "boolean.h"
 
-namespace pram::inline logic
+namespace pram
 {
-  class Set;
+    inline namespace logic {
+        class Set;
+    }
 }
 
 #endif//METAPARSE_SET_H

@@ -10,48 +10,47 @@
 #include <llvm/ADT/StringSwitch.h>
 #include <llvm/Support/Casting.h>
 
-namespace pram::inline logic
+namespace pram
 {
-  class Variable
-  {
-  public:
-    enum VariableKind : int
-    {
-      Free,
-      Bound
-    };
-  private:
-    const VariableKind Kind;
-  protected:
-    constexpr explicit Variable(VariableKind kind) : Kind(kind){}
-  public:
+    inline namespace logic {
+        class Variable {
+        public:
+            enum VariableKind : int {
+                Free,
+                Bound
+            };
+        private:
+            const VariableKind Kind;
+        protected:
+            constexpr explicit Variable(VariableKind kind) : Kind(kind) {}
 
-    [[nodiscard]] VariableKind GetKind() const{
-      return Kind;
-    };
-  };
+        public:
+
+            [[nodiscard]] VariableKind GetKind() const {
+                return Kind;
+            };
+        };
 
 
-  class FreeVariable : public Variable
-  {
-  public:
-    FreeVariable() : Variable(Free){}
+        class FreeVariable : public Variable {
+        public:
+            FreeVariable() : Variable(Free) {}
 
-    static bool isclass(const Variable* Var) {
-      return Var->GetKind() == Free;
+            static bool isclass(const Variable *Var) {
+                return Var->GetKind() == Free;
+            }
+        };
+
+        class BoundVariable : public Variable {
+        public:
+            BoundVariable() : Variable(Bound) {}
+
+            static bool isclass(const Variable *Var) {
+                return Var->GetKind() == Bound;
+            }
+
+        };
     }
-  };
-  class BoundVariable : public Variable
-  {
-  public:
-    BoundVariable() : Variable(Bound){}
-
-    static bool isclass(const Variable* Var) {
-      return Var->GetKind() == Bound;
-    }
-
-  };
-
 }
 
 #endif//METAPARSE_VARIABLE_H
