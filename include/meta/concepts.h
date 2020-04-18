@@ -5,7 +5,8 @@
 #ifndef METAPARSE_CONCEPTS_H
 #define METAPARSE_CONCEPTS_H
 
-#include <type_traits>
+#include "traits.h"
+#include <utility>
 
 namespace pram::meta
 {
@@ -31,6 +32,33 @@ namespace pram::meta
     template<typename Derived, template<typename...> typename Base,
             typename... OtherTypes>
     Base<OtherTypes...> extract_templated_base_helper(const Base<OtherTypes...> &);
+
+    template <typename T, typename U>
+    concept same_type_as = std::is_same_v<T, U>;
+
+
+    template <typename ...ArgTypes>
+    struct nttp_are_of_types
+    {
+      template <template <auto...> typename TT, typename = void>
+      struct match_template : std::false_type {};
+      template <template <ArgTypes ...> typename TT>
+      struct match_template<TT> : std::true_type{};
+    };
+    template <template <auto...> typename TT, typename ...ArgTypes>
+    inline constexpr static bool nttp_parameter_types_match = nttp_are_of_types<ArgTypes...>::template match_template<TT>::value;
+
+    template <typename T, template <typename...> typename TT>
+    struct instantiation_of_tt;
+    template <template <typename...> typename TT, typename ...Types>
+    struct instantiation_of_tt<TT<Types...>, TT> : std::true_type {};
+    template <typename T, template <typename...> typename TT>
+    struct instantiation_of_tt : std::false_type {};
+
+    template <typename T, template <auto...> typename TT>
+    struct instantiation_of_vt : std::false_type {};
+    template <template <auto...> typename TT, auto ...Types>
+    struct instantiation_of_vt<TT<Types...>, TT> : std::true_type {};
   }// namespace detail
 
   template<typename Derived, template<typename...> typename Base>
@@ -85,6 +113,20 @@ namespace pram::meta
     concept any_ref = std::is_same_v<std::remove_reference_t<T>, U>;
     template<typename T, typename U>
     concept any_qualifiers = std::is_same_v<std::remove_cvref_t<T>, U>;
+
+    template <typename T, template <typename...> typename TT>
+    concept instantiation_of_type_template = detail::instantiation_of_tt<T, TT>::value;
+    template <typename T, template <auto...> typename VT>
+    concept instantiation_of_value_template = detail::instantiation_of_vt<T, VT>::value;
+
+    template <typename Func, typename ...Args>
+    concept invocable_with = requires(Func&& func, Args&& ...args){
+        std::forward<Func>(func)(std::forward<Args>(args)...);
+    };
+
+    template <template <auto...> typename TT, typename ...ArgTypes>
+    concept template_nttp_types_match = detail::nttp_parameter_types_match<TT, ArgTypes...>;
+
   }// namespace concepts
 
 }

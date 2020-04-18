@@ -5,13 +5,15 @@
 #ifndef METAPARSE_AXIOM_H
 #define METAPARSE_AXIOM_H
 
-namespace pram::inline logic
+#include "boolean.h"
+
+namespace pram
 {
-  class Axiom {
-
-
-
-  };
+  inline namespace logic {
+    class Axiom {
+      //virtual Boolean
+    };
+  }
 }
 
 #endif // METAPARSE_AXIOM_H

@@ -6,14 +6,13 @@
 #define METAPARSE_OPERATORS_H
 
 #include <memory>
+#include "expression.h"
 
 namespace pram::inline logic
 {
-  class LogicStatement;
-
-  class LogicalOperator{
-    virtual std::unique_ptr<LogicStatement> eval() = 0;
-  };
+  /*class LogicalOperator{
+    virtual  eval() = 0;
+  };*/
 
 }
 

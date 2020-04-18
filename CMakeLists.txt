@@ -7,7 +7,7 @@ project(metaparse CXX)
 
 #link_directories($ENV{LLVM_PATH}/lib)
 set(CMAKE_MESSAGE_LOG_LEVEL TRACE)
-set(LLVM_COMPONENTS "codegen")
+set(LLVM_COMPONENTS "core")
 set(LLVM_FLAGS)
 set(LLVM_LIBS)
 
@@ -19,13 +19,14 @@ set(CMAKE_CXX_STANDARD 20)
 
 message(STATUS "INCLUDES: ${CMAKE_INCLUDE_PATH}")
 
-add_executable(metaparse main.cpp metafunction.h include/meta/attribute.h ASTBase.h include/logic/axiom.h include/logic/operators.h include/logic/boolean.h include/meta/concepts.h include/logic/set.h include/logic/variable.h include/meta/metavalue.h include/logic/statement.h include/logic/expression.h include/meta/rtti.h include/util/atomic_ref.h)
+add_executable(metaparse main.cpp metafunction.h include/meta/attribute.h ASTBase.h include/logic/axiom.h include/logic/operators.h include/logic/boolean.h include/meta/concepts.h include/logic/set.h include/logic/variable.h include/meta/metavalue.h include/logic/statement.h include/logic/expression.h include/meta/rtti.h include/util/atomic_ref.h include/meta/traits.h)
 add_executable(tests test/test_defs.inl test/meta/concepts.ii test/run_tests.cpp)
 enable_language(CXX)
 #add_test(unit_tests COMMAND ./tests)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
     message(STATUS "Generating LLVM build info for GCC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
     set(CXX_VERSION_STRING gnu++2a)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0.0)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")

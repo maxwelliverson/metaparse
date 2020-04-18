@@ -6,12 +6,20 @@
 #define METAPARSE_SET_H
 
 #include "boolean.h"
+#include "statement.h"
 
 namespace pram
 {
-    inline namespace logic {
-        class Set;
-    }
+  inline namespace logic {
+    class Set{
+
+
+    public:
+
+
+
+    };
+  }
 }
 
 #endif//METAPARSE_SET_H

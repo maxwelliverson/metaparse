@@ -9,11 +9,17 @@
 
 namespace pram
 {
-    inline namespace logic {
-        class LogicStatement {
+  inline namespace logic {
+    class Statement
+    {
 
-        };
-    }
+
+    public:
+      virtual Boolean operator()() const noexcept{
+
+      }
+    };
+  }
 }
 
 #endif//METAPARSE_STATEMENT_H
