@@ -13,6 +13,10 @@
 #include <initializer_list>
 #include <iostream>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Metadata.h>
 //#include <llvm/Support/GenericDomTree.h>
 //#include "metafunction.h"
 
@@ -27,7 +31,7 @@ using namespace pram::logic;
 struct VariableVisitor
 {
   std::string operator()(const Variable* var) const{
-    std::string ret_string = std::string("Bound Variable with ID = ") + var->getIdentifier();
+    std::string ret_string = std::string("Unknown Variable with ID = ") + var->getIdentifier();
     return ret_string;
   }
   std::string operator()(const BoundVariable* var) const{
@@ -61,7 +65,7 @@ public:
 };
 
 template <template <typename, auto> typename ArrType = std::array>
-constexpr static array_initializer<ArrType> initialze_array{};
+constexpr static array_initializer<ArrType> initialize_array{};
 
 
 
@@ -76,9 +80,9 @@ int main()
     delete var1;
     delete var2;
 
- /*   auto str = initialze_array<llvm::SmallVector>("Hello, World!");
+    auto str = initialize_array<llvm::SmallVector>("Hello, World!");
 
     for (auto c : str)
       if(c)
-        std::cout << c;*/
+        std::cout << c;
 }

@@ -3,3 +3,6 @@
 /cmake-build-debug-visual-studio-clang/
 /cmake-build-release/
 /cmake-build-release-visual-studio-clang/
+/out/build
+/.vs
+/CMakeSettings.json

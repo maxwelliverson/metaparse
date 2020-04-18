@@ -7,6 +7,7 @@
 
 #include "boolean.h"
 #include "meta/rtti.h"
+#include "value.h"
 
 #include <string>
 
@@ -26,7 +27,7 @@ namespace pram
   );
 
   inline namespace logic {
-    class Variable
+    class Variable : public Value
     {
     protected:
       using VariableKind = RTTIKind<Variable>;
@@ -36,7 +37,7 @@ namespace pram
       const std::string identifier;
 
     protected:
-      explicit Variable(VariableKind kind, std::string id) : Kind(kind), identifier(std::move(id)) {}
+      explicit Variable(VariableKind kind, std::string id) : Value(ValueKind::Variable), Kind(kind), identifier(std::move(id)) {}
 
     public:
       [[nodiscard]] const std::string& getIdentifier() const {

@@ -8,7 +8,7 @@
 #include "boolean.h"
 //#include "set.h"
 #include "variable.h"
-#include "meta/concepts.h"
+#include "../meta/concepts.h"
 
 #include <type_traits>
 
@@ -22,24 +22,16 @@ namespace pram
       class TerminalExprNode;
         class ValueExprNode;
         class NullExprNode;
-      class UnaryExprNode;
-        class NotNode;
-        class IdentityNode;
-        class UnaryMinusNode;
-      class BinaryExprNode;
-      class TernaryExprNode;
-      class VariadicExprNode;
+      class IntermediateExprNode;
+        class Operator;
   }
 
   ENABLE_RTTI(
     ExprNode,
-      RTTI_ENUM(Root, Terminal, Unary, Binary, Ternary, Variadic);
+      RTTI_ENUM(Root, Terminal, Intermediate);
       RTTI_DYNAMIC_TYPE(Root, RootExprNode);
       RTTI_DYNAMIC_TYPE(Terminal, TerminalExprNode);
-      RTTI_DYNAMIC_TYPE(Unary, UnaryExprNode);
-      RTTI_DYNAMIC_TYPE(Binary, BinaryExprNode);
-      RTTI_DYNAMIC_TYPE(Ternary, TernaryExprNode);
-      RTTI_DYNAMIC_TYPE(Variadic, VariadicExprNode);
+      RTTI_DYNAMIC_TYPE(Intermediate, IntermediateExprNode);
   );
 
   ENABLE_RTTI(
@@ -50,25 +42,10 @@ namespace pram
   );
 
   ENABLE_RTTI(
-    UnaryExprNode,
-      RTTI_ENUM(Not, UnaryMinus, Identity);
-      RTTI_DYNAMIC_TYPE(Not, NotNode);
-      RTTI_DYNAMIC_TYPE(UnaryMinus, UnaryMinusNode);
-      RTTI_DYNAMIC_TYPE(Identity, IdentityNode);
+    IntermediateExprNode,
+      RTTI_ENUM(Operator);
+      RTTI_DYNAMIC_TYPE(Operator, logic::Operator);
   );
-
-  namespace meta {
-    inline namespace concepts {
-      template<typename T>
-      concept HasCustomRTTI = requires(T &&t) {
-        t.getKind();
-      };
-      template<typename T>
-      concept Dispatchable = HasCustomRTTI<T> &&requires(T &&t) {
-        t.getKind().dispatch();
-      };
-    }
-  }
 
   inline namespace logic{
     /*constexpr struct dispatchExpr_fn {
@@ -126,7 +103,7 @@ namespace pram
     } sameOpKindAs;
 */
     //Functor Objects for dynamic visiting dispatch
-    namespace {
+    namespace functors {
       constexpr struct {
         template<typename A, typename B>
         constexpr decltype(auto) operator()(const A &a, const B &b) const noexcept(noexcept(a == b)) {
@@ -157,19 +134,21 @@ namespace pram
       const ExprKind exprOpKind;
       const ExprNode* parent;
 
-  protected:
-      explicit constexpr ExprNode(const ExprNode* parent, ExprKind op) : parent(parent), exprOpKind(op) {}
-
   public:
+      explicit constexpr ExprNode(const ExprNode* parent, ExprKind op) : exprOpKind(op), parent(parent) {}
+
+  
 
       [[nodiscard]] ExprKind getKind() const {
         return exprOpKind;
       }
     };
     /*const ExprNode::ExprKind ExprNode::RootExpr{ROOT};*/
-    constexpr struct RootExprNode :   public ExprNode {
-      constexpr RootExprNode() : ExprNode(this,ExprKind::Root) {}
-    } RootNodeConst{};
+    class RootExprNode :   public ExprNode {
+    public:
+      explicit constexpr RootExprNode() : ExprNode(this,ExprKind::Root) {}
+    };
+    inline constexpr static RootExprNode RootNodeConst{};
     inline constexpr static const RootExprNode* RootNode = &RootNodeConst;
     class TerminalExprNode :          public ExprNode
     {
@@ -179,44 +158,28 @@ namespace pram
     private:
       const TerminalExprKind terminalExprKind;
 
-    protected:
+    public:
       explicit constexpr TerminalExprNode(const ExprNode* parent, TerminalExprKind op) :
-        terminalExprKind(op), ExprNode(parent, ExprKind::Terminal) {}
+        ExprNode(parent, ExprKind::Terminal), terminalExprKind(op) {}
 
       [[nodiscard]] TerminalExprKind getKind() const {
         return terminalExprKind;
       }
-
-    public:
     };
-    class UnaryExprNode :             public ExprNode
+    class IntermediateExprNode :             public ExprNode
     {
     protected:
-      using UnaryExprKind = RTTIKind<UnaryExprNode>;
+      using IntermediateExprKind = RTTIKind<IntermediateExprNode>;
     private:
-      const UnaryExprKind unaryExprKind;
-
-      const ExprNode* expr;
+      const IntermediateExprKind intermediateExprKind;
 
     public:
-      explicit constexpr UnaryExprNode(const ExprNode* parent, const ExprNode* expr, UnaryExprKind op) :
-        expr(expr), unaryExprKind(op), ExprNode(parent, ExprKind::Unary) {}
+      explicit constexpr IntermediateExprNode(const ExprNode* parent, IntermediateExprKind op) :
+         ExprNode(parent, ExprKind::Intermediate), intermediateExprKind(op) {}
 
-      [[nodiscard]] UnaryExprKind getKind() const {
-        return unaryExprKind;
+      [[nodiscard]] IntermediateExprKind getKind() const {
+        return intermediateExprKind;
       }
-      [[nodiscard]] const ExprNode* getChild() const{
-        return expr;
-      }
-    };
-    class BinaryExprNode :            public ExprNode
-    {
-    };
-    class TernaryExprNode :           public ExprNode
-    {
-    };
-    class VariadicExprNode :          public ExprNode
-    {
     };
 
 
@@ -230,10 +193,11 @@ namespace pram
         return *variable;
       }
     };
-    constexpr class NullExprNode : public TerminalExprNode{
+    class NullExprNode : public TerminalExprNode{
     public:
       explicit constexpr NullExprNode(const ExprNode* parent = RootNode) : TerminalExprNode(parent, TerminalExprKind::Null){}
-    } NullNodeConst{};
+    };
+    inline constexpr static NullExprNode NullNodeConst{};
     inline constexpr static const NullExprNode* NullNode = &NullNodeConst;
 
 
