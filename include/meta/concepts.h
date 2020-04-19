@@ -86,13 +86,11 @@ namespace pram::meta
     concept derived_from = base_class_of<Base, Derived>;
 
     template<typename T, template<typename...> typename TT>
-    concept derived_from_template =
-    base_class_of<extract_templated_base_t<T, TT>, T>;
+    concept derived_from_template = base_class_of<extract_templated_base_t<T, TT>, T>;
     template<typename T, template<typename...> typename TT>
     concept crtp_inherits = base_class_of<extract_crtp_base_t<T, TT>, T>;
     template<typename T, template<typename...> typename Tag>
-    concept tagged_as =
-    crtp_inherits<T, Tag> &&std::is_empty_v<extract_crtp_base_t<T, Tag>>;
+    concept tagged_as = crtp_inherits<T, Tag> &&std::is_empty_v<extract_crtp_base_t<T, Tag>>;
 
     template <typename T, typename U>
     concept type_of = std::is_same_v<T, U>;
@@ -126,6 +124,32 @@ namespace pram::meta
 
     template <template <auto...> typename TT, typename ...ArgTypes>
     concept template_nttp_types_match = detail::nttp_parameter_types_match<TT, ArgTypes...>;
+
+    template <typename T>
+    concept class_type = std::is_class_v<T>;
+
+    template <typename T>
+    concept raw_pointer = std::is_pointer_v<T>;
+
+    template <typename T>
+    concept has_deref_op = requires(T &&t) { *t; };
+    template <typename T>
+    concept has_arrow_op = requires(T &&t) {
+      t.operator->();
+    };
+
+    template <typename T>
+    concept smart_pointer = has_arrow_op<T> && has_deref_op<T>;
+    template <typename T>
+    concept pointerlike = raw_pointer<T> || smart_pointer<T>;
+
+    template <typename T>
+    concept complete_type = requires(T&& t)
+    {
+      sizeof(T) == sizeof(t);
+    };
+    template <typename T>
+    concept incomplete_type = !complete_type<T>;
 
   }// namespace concepts
 

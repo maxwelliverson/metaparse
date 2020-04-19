@@ -23,7 +23,7 @@ namespace pram
         class ValueExprNode;
         class NullExprNode;
       class IntermediateExprNode;
-        class Operator;
+        class Operation;
   }
 
   ENABLE_RTTI(
@@ -44,7 +44,7 @@ namespace pram
   ENABLE_RTTI(
     IntermediateExprNode,
       RTTI_ENUM(Operator);
-      RTTI_DYNAMIC_TYPE(Operator, logic::Operator);
+      RTTI_DYNAMIC_TYPE(Operator, logic::Operation);
   );
 
   inline namespace logic{

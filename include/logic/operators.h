@@ -12,6 +12,9 @@ namespace pram
 {
   inline namespace logic
   {
+    class Operation;
+
+
     class Operator;
     class UnaryOperator;
     class BinaryOperator;
@@ -27,20 +30,35 @@ namespace pram
   );
 
   inline namespace logic {
-    class Operator : public IntermediateExprNode {
+    class Operator{
     protected:
       using OperatorKind = RTTIKind<Operator>;
     private:
       const OperatorKind operatorKind;
 
     public:
-      explicit constexpr Operator(OperatorKind opKind) : IntermediateExprNode(IntermediateExprKind::Operator), operatorKind(opKind){}
+      explicit constexpr Operator(OperatorKind opKind) : operatorKind(opKind){}
     };
 
 
-    class UnaryOperator;
-    class BinaryOperator;
-    class VariadicOperator;
+    class UnaryOperator : public Operator {
+    public:
+      explicit constexpr UnaryOperator() : Operator(OperatorKind::Unary){}
+    };
+    class BinaryOperator : public Operator
+    {
+    public:
+      explicit constexpr BinaryOperator() : Operator(OperatorKind::Binary) {}
+    };
+    class VariadicOperator : public Operator
+    {
+    public:
+      explicit constexpr VariadicOperator() : Operator(OperatorKind::Variadic) {}
+    };
+
+    class Operation : public IntermediateExprNode {
+      
+    };
   }
   
 

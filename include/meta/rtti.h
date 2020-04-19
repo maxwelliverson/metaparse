@@ -6,6 +6,7 @@
 #define METAPARSE_RTTI_H
 
 #include "meta/attribute.h"
+#include <compare>
 
 namespace pram::meta
 {
@@ -39,10 +40,34 @@ namespace pram::meta
     };
     template<typename T>
     concept RTTIHierarchyBase = RTTIEnumType<rtti::RTTIEnum<T>> &&RTTIEnabled<T>;
+    template<typename T, RTTIKind<T> I>
+    concept RTTIEnumEnd = I == RTTIKind<T>::EnumCount;
+    template<typename T, RTTIKind<T> I>
+    concept RTTIEnumNotEnd = !RTTIEnumEnd<T, I>;
   }
   inline namespace rtti {
+    struct LastEnum{};
+
+    namespace rtti_detail {
+      template<typename Base, RTTIKind<Base> E>
+      struct GetDynamicType;
+
+      template<typename Base, RTTIKind<Base> E>
+      requires(RTTIEnumEnd<Base, E>)
+      struct GetDynamicType<Base, E> {
+        using type = LastEnum;
+      };
+
+      template <typename Base, RTTIKind<Base> E>
+      requires(RTTIEnumNotEnd<Base, E>) struct GetDynamicType<Base, E> {
+        using type = typename RTTIEnum<Base>::template TypeMap<E>::type;
+      };
+
+
+    }
+
     template<typename Base, auto E>
-    using RTTIDynamic = typename RTTIEnum<Base>::template TypeMap<E>::type;
+    using RTTIDynamic = typename rtti_detail::GetDynamicType<Base, static_cast<RTTIKind<Base>>(E)>::type;
 
     template <auto E,
               typename Base,
@@ -63,7 +88,7 @@ namespace pram::meta
     {
       template <int> struct Constant{};
       template <typename EnumType, typename Base, typename FuncObj, typename ...Args>
-      inline constexpr decltype(auto) dispatch(Constant<EnumType::EnumCount>&&, Base&& base, FuncObj&& func, Args&& ...args){
+      inline constexpr decltype(auto) [[maybe_unused]] dispatch(Constant<EnumType::EnumCount> &&, Base &&base, FuncObj &&func, Args &&... args) {
         return (std::forward<FuncObj>(func))(std::forward<Base>(base), std::forward<Args>(args)...);
       }
       template <typename EnumType, int N, typename Base, typename FuncObj, typename ...Args>
@@ -83,16 +108,89 @@ namespace pram::meta
 
         return dispatch<EnumType>(Constant<N + 1>{}, std::forward<Base>(base), std::forward<FuncObj>(func), std::forward<Args>(args)...);
       }
+
+      struct dispatch_fn {
+        template<typename Base,
+                 typename... Args,
+                 typename FuncObj,
+                 typename StrippedBase = strip_type_and_pointers<Base>>
+                 requires(RTTIHierarchyBase<StrippedBase>)
+        constexpr decltype(auto) operator()(Base &&base, FuncObj &&func, Args &&... args) const noexcept {
+          return dispatch<RTTIKind<StrippedBase>>(rtti_detail::Constant<0>{}, std::forward<Base>(base), std::forward<FuncObj>(func), std::forward<Args>(args)...);
+        }
+      };
     }
 
-    template<typename Base,
-             typename... Args,
-             typename FuncObj,
-             typename StrippedBase = strip_type_and_pointers<Base>>
-      requires (RTTIHierarchyBase<StrippedBase>)
-    inline constexpr decltype(auto) dispatch(Base&& base, FuncObj &&func, Args &&... args) {
-      return rtti_detail::dispatch<RTTIKind<StrippedBase>>(rtti_detail::Constant<0>{}, std::forward<Base>(base), std::forward<FuncObj>(func), std::forward<Args>(args)...);
+    inline constexpr static rtti_detail::dispatch_fn dispatch{};
+
+    namespace rtti_detail {
+      template <RTTIHierarchyBase Base>
+      class rtti_range {
+        using RTTIEnumKind = RTTIKind<Base>;
+
+        class rtti_iterator {
+          int pos;
+        public:
+          explicit constexpr rtti_iterator(int pos) : pos(pos){}
+
+          constexpr RTTIEnumKind operator*() const noexcept {
+            return pos;
+          }
+          constexpr rtti_iterator & operator++() {
+            ++pos;
+            return *this;
+          }
+          constexpr std::strong_ordering operator<=>(const rtti_iterator& other) const noexcept{
+            if (pos == other.pos)
+              return std::strong_ordering::equal;
+            if (pos < other.pos)
+              return std::strong_ordering::less;
+
+            return std::strong_ordering::greater;
+          }
+
+        };
+
+        friend constexpr auto begin(const rtti_range& range) {
+          return rtti_iterator(0);
+        }
+        friend constexpr auto end(const rtti_range& range) {
+          return rtti_iterator(RTTIEnumKind::EnumCount);
+        }
+
+      public:
+        explicit constexpr rtti_range() = default;
+      };
+      template<RTTIHierarchyBase Base>
+      struct hierarchy_iterator_fn {
+        constexpr auto operator()() const noexcept {
+          return rtti_range<Base>();
+        }
+      };
+      struct recursive_dispatch_fn {
+        template<typename Base,
+                 typename... Args,
+                 typename FuncObj,
+                 typename StrippedBase = strip_type_and_pointers<Base>>
+                 requires(RTTIHierarchyBase<StrippedBase>)
+        constexpr decltype(auto) operator()(Base &&base, FuncObj &&func, Args &&... args) const{
+          return dispatch(std::forward<Base>(base), *this, std::forward<FuncObj>(func), std::forward<Args>(args)...);
+        }
+
+        template<typename Derived,
+                 typename... Args,
+                 typename FuncObj>
+        constexpr decltype(auto) operator()(Derived &&derived, FuncObj &&func, Args &&... args) const{
+          return std::forward<FuncObj>(func)(std::forward<Derived>(derived), std::forward<Args>(args)...);
+        }
+
+
+      };
     }
+
+    template<typename Base>
+    constexpr static rtti_detail::hierarchy_iterator_fn<strip_type<Base>> hierarchy_iterator{};
+    constexpr static rtti_detail::recursive_dispatch_fn recursive_dispatch{};
   }
 }
 
@@ -104,7 +202,7 @@ namespace pram
 }
 
 #define ENABLE_RTTI(name, ...) template <> struct pram::meta::rtti::RTTIEnum< name >{ __VA_ARGS__ }
-#define RTTI_ENUM(...) enum Kind {__VA_ARGS__, EnumCount }; template <Kind, typename = void> struct TypeMap
+#define RTTI_ENUM(...) enum Kind : unsigned char {__VA_ARGS__, EnumCount }; template <Kind, typename = void> struct TypeMap
 #define RTTI_DYNAMIC_TYPE(e, t) template <typename Void> struct TypeMap< e , Void>{using type = t;}
 
 #endif//METAPARSE_RTTI_H
