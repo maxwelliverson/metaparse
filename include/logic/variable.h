@@ -22,8 +22,8 @@ namespace pram
   ENABLE_RTTI(
     Variable,
       RTTI_ENUM(Bound, Free);
-      RTTI_DYNAMIC_TYPE(Bound, logic::BoundVariable);
-      RTTI_DYNAMIC_TYPE(Free, logic::FreeVariable);
+      RTTI_DYNAMIC_TYPE(Bound, BoundVariable);
+      RTTI_DYNAMIC_TYPE(Free, FreeVariable);
   );
 
   inline namespace logic {

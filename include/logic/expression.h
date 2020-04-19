@@ -23,7 +23,7 @@ namespace pram
         class ValueExprNode;
         class NullExprNode;
       class IntermediateExprNode;
-        class Operator;
+        class Operation;
   }
 
   ENABLE_RTTI(
@@ -44,7 +44,7 @@ namespace pram
   ENABLE_RTTI(
     IntermediateExprNode,
       RTTI_ENUM(Operator);
-      RTTI_DYNAMIC_TYPE(Operator, logic::Operator);
+      RTTI_DYNAMIC_TYPE(Operator, logic::Operation);
   );
 
   inline namespace logic{
@@ -131,22 +131,25 @@ namespace pram
       using OptExprNodePtr = std::optional<std::shared_ptr<ExprNode>>;
 
 
-      const ExprKind exprOpKind;
-      const ExprNode* parent;
+      const uint64_t exprKind : 2;
+      const uint64_t parent : 62;
 
   public:
-      explicit constexpr ExprNode(const ExprNode* parent, ExprKind op) : exprOpKind(op), parent(parent) {}
+      explicit constexpr ExprNode(ExprKind expr) : exprKind(expr), parent(static_cast<uint64_t>(0)) {}
+      explicit ExprNode(const ExprNode *parent, ExprKind expr) : exprKind(expr), parent(reinterpret_cast<uint64_t>(parent)){}
 
-  
+      [[nodiscard]] const ExprNode* getParent() const {
+        return reinterpret_cast<const ExprNode*>(parent);
+      }
 
       [[nodiscard]] ExprKind getKind() const {
-        return exprOpKind;
+        return static_cast<ExprKind>(exprKind);
       }
     };
     /*const ExprNode::ExprKind ExprNode::RootExpr{ROOT};*/
     class RootExprNode :   public ExprNode {
     public:
-      explicit constexpr RootExprNode() : ExprNode(this,ExprKind::Root) {}
+      explicit constexpr RootExprNode() : ExprNode(ExprKind::Root) {}
     };
     inline constexpr static RootExprNode RootNodeConst{};
     inline constexpr static const RootExprNode* RootNode = &RootNodeConst;
@@ -159,7 +162,8 @@ namespace pram
       const TerminalExprKind terminalExprKind;
 
     public:
-      explicit constexpr TerminalExprNode(const ExprNode* parent, TerminalExprKind op) :
+      explicit constexpr TerminalExprNode(TerminalExprKind op) : ExprNode(ExprKind::Terminal), terminalExprKind(op){}
+      explicit TerminalExprNode(const ExprNode* parent, TerminalExprKind op) :
         ExprNode(parent, ExprKind::Terminal), terminalExprKind(op) {}
 
       [[nodiscard]] TerminalExprKind getKind() const {
@@ -174,7 +178,7 @@ namespace pram
       const IntermediateExprKind intermediateExprKind;
 
     public:
-      explicit constexpr IntermediateExprNode(const ExprNode* parent, IntermediateExprKind op) :
+      explicit IntermediateExprNode(const ExprNode* parent, IntermediateExprKind op) :
          ExprNode(parent, ExprKind::Intermediate), intermediateExprKind(op) {}
 
       [[nodiscard]] IntermediateExprKind getKind() const {
@@ -195,8 +199,10 @@ namespace pram
     };
     class NullExprNode : public TerminalExprNode{
     public:
-      explicit constexpr NullExprNode(const ExprNode* parent = RootNode) : TerminalExprNode(parent, TerminalExprKind::Null){}
+      explicit constexpr NullExprNode() : TerminalExprNode(TerminalExprKind::Null){}
     };
+
+
     inline constexpr static NullExprNode NullNodeConst{};
     inline constexpr static const NullExprNode* NullNode = &NullNodeConst;
 
